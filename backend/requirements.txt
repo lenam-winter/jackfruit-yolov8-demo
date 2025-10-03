@@ -1,0 +1,12 @@
+# Core
+Flask==3.0.3
+gunicorn==23.0.0
+pillow==10.4.0
+numpy==1.26.4
+
+# YOLOv8 (PyTorch) path
+ultralytics==8.3.20
+torch>=2.2.0
+
+# Optional ONNX path
+onnxruntime==1.18.1

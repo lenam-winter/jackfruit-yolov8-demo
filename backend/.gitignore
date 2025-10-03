@@ -1,0 +1,35 @@
+# Python env & cache
+.venv/
+env/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# System
+*.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+
+# Logs / temp
+*.log
+*.tmp
+
+# Training outputs
+runs/
+
+# Models
+models/*.pt
+models/*.onnx
+
+# Images (test/demo)
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Env secrets
+.env

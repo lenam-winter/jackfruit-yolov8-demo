@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jackfruit Vision • YOLOv8 Demo</title>
+    <link rel="icon" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <!-- Top Navigation -->
+    <header class="topbar">
+      <div class="container nav">
+        <div class="brand">
+          <img src="/static/logo.svg" alt="Logo" />
+          <span>Jackfruit Vision</span>
+        </div>
+        <nav class="menu">
+          <a href="#demo">Demo</a>
+          <a href="#results">Kết quả</a>
+          <a href="#about">Giới thiệu</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <h1>Nhận dạng & phân loại <span class="accent">trái mít</span> bằng YOLOv8</h1>
+          <p>
+            Tải ảnh hoặc chụp trực tiếp từ webcam. Hệ thống sẽ phát hiện và gắn nhãn:
+            <strong>mít non</strong>, <strong>mít chín</strong>, <strong>mít sâu bệnh</strong>.
+          </p>
+          <div class="meta">
+            <div class="pill">Model: <span id="modelName">best.pt</span></div>
+            <div class="pill">Backend: Flask</div>
+            <div class="pill">Engine: Ultralytics YOLOv8</div>
+          </div>
+          <a class="cta" href="#demo">Bắt đầu dùng</a>
+        </div>
+        <div class="hero-art">
+          <img src="/static/hero-illustration.svg" alt="Jackfruit Vision" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Demo -->
+    <main id="demo" class="container">
+      <div class="grid">
+        <!-- Upload card -->
+        <section class="card">
+          <div class="card-head">
+            <h2>1) Tải ảnh hoặc kéo-thả</h2>
+            <p class="muted">Hỗ trợ JPG/PNG/WebP. Có thể dùng drag-and-drop vào khung dưới.</p>
+          </div>
+
+          <div id="dropZone" class="dropzone" tabindex="0" aria-label="Khu vực kéo thả">
+            <div class="dz-inner">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16l4-5h-3V4h-2v7H8l4 5zM4 18h16v2H4z"/></svg>
+              <p>Kéo thả ảnh vào đây, hoặc</p>
+              <div class="actions">
+                <input id="fileInput" type="file" accept="image/*" hidden />
+                <button id="btnChoose" class="btn">Chọn ảnh</button>
+                <button id="btnPredict" class="btn btn-primary">Nhận dạng ảnh</button>
+              </div>
+            </div>
+            <img id="preview" class="preview" alt="Xem trước ảnh" />
+          </div>
+
+          <div class="row">
+            <div class="row-left">
+              <label class="switch">
+                <input type="checkbox" id="chkAutoRun" checked />
+                <span class="slider"></span>
+              </label>
+              <span class="muted">Tự động nhận dạng sau khi chọn ảnh</span>
+            </div>
+            <div class="row-right">
+              <label class="muted">Kích thước xử lý (server): 640</label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Camera card -->
+        <section class="card">
+          <div class="card-head">
+            <h2>2) Hoặc dùng webcam</h2>
+            <p class="muted">Bật camera để chụp, sau đó gửi ảnh lên server để nhận dạng.</p>
+          </div>
+          <div class="camera">
+            <video id="video" playsinline></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
+
+            <div class="actions">
+                <button id="btnStartCam" class="btn">Bật camera</button>
+                <button id="btnStopCam" class="btn">Tắt camera</button>
+                <button id="btnSnap" class="btn">Chụp ảnh</button>
+                <button id="btnPredictSnap" class="btn btn-primary">Nhận dạng ảnh chụp</button>
+            </div>
+
+          </div>
+        </section>
+      </div>
+
+      <!-- Results -->
+      <section id="results" class="card">
+        <div class="card-head">
+          <h2>Kết quả</h2>
+          <div id="status" class="status"><span class="dot idle"></span><span id="statusText">Sẵn sàng</span></div>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-media">
+            <img id="imgResult" alt="Kết quả nhận dạng" />
+            <div id="progress" class="progress" hidden>
+              <div class="loader-box"><div class="bar"></div></div>
+                
+            </div>
+
+          </div>
+
+          <div class="result-data">
+            <h3>Danh sách phát hiện</h3>
+            <div id="emptyState" class="empty">
+              Chưa có dữ liệu. Hãy tải ảnh hoặc chụp bằng webcam.
+            </div>
+
+            <table id="tblDetections" class="table" hidden>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Lớp</th>
+                  <th>Độ tin cậy</th>
+                  <th>Hộp (x1, y1, x2, y2)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+
+            <details class="raw">
+              <summary>Dữ liệu thô (JSON)</summary>
+              <pre id="jsonResult"></pre>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- About -->
+    <section id="about" class="container about">
+      <div class="card">
+        <h2>Về dự án</h2>
+        <p>
+          Web demo minh họa pipeline nhận dạng trái mít bằng YOLOv8 (Ultralytics) chạy trên Flask.
+          Dùng thử nghiệm cho đồ án tốt nghiệp: <em>Nghiên cứu và ứng dụng YOLOv8 trong nhận dạng và phân loại độ chín trái mít</em>.
+        </p>
+        <ul class="ticks">
+          <li>Upload / Webcam → Server inference → Trả ảnh annotate + JSON.</li>
+          <li>Thiết kế sạch, hiện đại, thân thiện người dùng.</li>
+          <li>Dễ triển khai lên Render/Railway/Heroku.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>© <span id="year"></span> Jackfruit Vision</span>
+        <span class="muted">Build with Flask · Ultralytics YOLOv8</span>
+      </div>
+    </footer>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/static/script.js?v=2"></script>
+
+  </body>
+</html>
