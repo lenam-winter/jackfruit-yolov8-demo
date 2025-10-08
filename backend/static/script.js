@@ -96,6 +96,30 @@ async function uploadAndPredict(file) {
 }
 
 
+async function predictFromURL(imageUrl){
+  if(!imageUrl || !/^https?:\/\//i.test(imageUrl)){ alert("Nhập URL http/https hợp lệ"); return; }
+  setBusy();
+  try{
+    const res = await fetch("/predict_url", {  // <-- đúng đường dẫn
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ url: imageUrl })
+    });
+    if(!res.ok) throw new Error(await res.text() || "Server error");
+    const data = await res.json();
+    imgResult.src = "data:image/png;base64," + data.preview_png_base64;
+    renderDetections(data.detections);
+  } catch(e){ alert("Lỗi: " + e.message); }
+  finally{
+    $("#status .dot").className = "dot ok";
+    $("#statusText").textContent = "Hoàn tất 🎉";
+    const progress = $("#progress"); progress.hidden = true; progress.style.display = "none";
+  }
+}
+
+
+
+
 // ===== Upload / Drag-drop =====
 const dropZone = $("#dropZone");
 const fileInput = $("#fileInput");
@@ -142,6 +166,16 @@ btnPredict.addEventListener("click", () => {
   if (!f) return toast("Vui lòng chọn ảnh trước!");
   uploadAndPredict(f);
 });
+
+// THÊM MỚI: sự kiện cho URL
+const urlInput = $("#urlInput");
+const btnPredictURL = $("#btnPredictURL");
+btnPredictURL?.addEventListener("click", ()=>{
+  const url = urlInput?.value?.trim();
+  predictFromURL(url);
+});
+
+
 
 // ===== Webcam (bản chắc chắn) =====
 const video = $("#video");
@@ -222,6 +256,42 @@ btnPredictSnap.addEventListener("click", async () => {
   btnStartCam.disabled = !!stream;
   btnStopCam.disabled = !stream;
 })();
+
+// ===== Theme: light / dark toggle =====
+const btnTheme = document.getElementById("btnTheme");
+const themeIcon = document.getElementById("themeIcon");
+const THEME_KEY = "jf_theme"; // localStorage key
+
+function applyTheme(theme){
+  // theme: "dark" | "light"
+  document.documentElement.setAttribute("data-theme", theme);
+  if(btnTheme){
+    btnTheme.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    themeIcon.textContent = theme === "dark" ? "☀️" : "🌙"; // sun when dark (to switch), moon when light
+  }
+  try { localStorage.setItem(THEME_KEY, theme); } catch(e){}
+}
+
+function initTheme(){
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch(e){ saved = null; }
+  if(saved === "dark" || saved === "light"){
+    applyTheme(saved);
+    return;
+  }
+  // fallback to system preference
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+}
+
+// Toggle handler
+btnTheme?.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  applyTheme(cur === "dark" ? "light" : "dark");
+});
+
+// init on load
+initTheme();
 
 // Misc
 $("#year").textContent = new Date().getFullYear();

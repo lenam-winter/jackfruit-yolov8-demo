@@ -6,6 +6,10 @@ from typing import List, Dict, Any
 from flask import Flask, render_template, request, jsonify, send_file
 from PIL import Image
 import numpy as np
+import requests
+from PIL import Image
+from flask import request, jsonify
+
 
 # Configuration
 USE_ONNX = False  # set True if you exported to ONNX and want to use onnxruntime
@@ -33,7 +37,7 @@ def load_model():
         _model_classes = ["unripe", "ripe", "diseased"]
     else:
         # Ultralytics YOLOv8
-        from ultralytics import YOLO
+        from ultralytics import YOLO # type: ignore
         _model = YOLO(MODEL_PATH)
         _model_classes = _model.names
     return _model
@@ -43,7 +47,7 @@ def run_inference(image: Image.Image) -> Dict[str, Any]:
 
     # Ultralytics path (PyTorch)
     if not USE_ONNX:
-        from ultralytics.utils.plotting import Annotator, colors
+        from ultralytics.utils.plotting import Annotator, colors # type: ignore
         # Inference
         results = model.predict(image, imgsz=IMG_SIZE, conf=CONF_THRES, iou=IOU_THRES, verbose=False)
         # Take first result
@@ -136,6 +140,39 @@ def predict_json():
         "detections": out["detections"],
         "preview_png_base64": b64
     })
+
+@app.route("/predict_url", methods=["POST"])
+def predict_url():
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return jsonify(error="Missing 'url'"), 400
+    try:
+        max_bytes = 5 * 1024 * 1024  # 5MB
+        r = requests.get(url, stream=True, timeout=10)
+        r.raise_for_status()
+        content = r.raw.read(max_bytes + 1, decode_content=True)
+        if len(content) == 0:
+            return jsonify(error="Empty image content"), 400
+        if len(content) > max_bytes:
+            return jsonify(error="Image too large (max 5MB)"), 400
+        img = Image.open(io.BytesIO(content)).convert("RGB")
+    except Exception as e:
+        return jsonify(error=f"Failed to fetch image: {e}"), 400
+
+    try:
+        out = run_inference(img)
+        # prepare preview like predict_json
+        preview = out["annotated_image"].copy()
+        preview.thumbnail((512, 512))
+        b = image_to_bytes(preview)
+        b64 = base64.b64encode(b).decode("utf-8")
+        return jsonify({
+            "detections": out["detections"],
+            "preview_png_base64": b64
+        })
+    except Exception as e:
+        return jsonify(error=f"Inference error: {e}"), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
