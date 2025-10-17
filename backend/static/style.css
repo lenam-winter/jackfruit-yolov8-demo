@@ -257,3 +257,55 @@ html[data-theme="dark"] .preview{ background: linear-gradient(180deg, rgba(6,10,
 
 .dropzone.has-img .dz-inner svg, .dropzone.has-img .dz-inner p { display: none; }
 
+
+
+.chat {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 12px;
+  height: 420px
+}
+
+.thread {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 12px;
+  overflow: auto
+}
+
+.msg {
+  display: flex;
+  margin: 8px 0
+}
+
+.msg.user {
+  justify-content: flex-end
+}
+
+.msg.bot {
+  justify-content: flex-start
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border)
+}
+
+.msg.user .bubble {
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  color: #021014
+}
+
+.msg.bot .bubble {
+  background: var(--card);
+  color: var(--text)
+}
+
+.chatbox {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px
+}
+

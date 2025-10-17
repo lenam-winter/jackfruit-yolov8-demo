@@ -20,6 +20,7 @@
       <nav class="menu">
         <a href="#demo">Demo</a>
         <a href="#results">Kết quả</a>
+        <a href="#chat">Chatbot</a>
         <a href="#about">Giới thiệu</a>
       </nav>
 
@@ -167,6 +168,25 @@
     </section>
   </main>
 
+
+
+   <section id="chat" class="card">
+  <div class="card-head">
+    <h2>Trợ lý AI (Gemini)</h2>
+    <p class="muted">Hỏi đáp về mô hình, cách dùng, xử lý lỗi… (API key nằm ở server)</p>
+  </div>
+  <div class="chat">
+    <div id="chatThread" class="thread" aria-live="polite"></div>
+    <form id="chatForm" class="chatbox">
+      <input id="chatInput" type="text" placeholder="Nhập câu hỏi..." autocomplete="off" />
+      <button id="chatSend" class="btn btn-primary" type="submit">Gửi</button>
+    </form>
+  </div>
+</section>
+
+
+
+
   <!-- About -->
   <section id="about" class="container about">
     <div class="card">
@@ -184,6 +204,8 @@
     </div>
   </section>
 
+  
+
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-inner">
@@ -194,8 +216,10 @@
 
   <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
   <script src="/static/script.js?v=2"></script>
+
+
+
 
 </body>
 

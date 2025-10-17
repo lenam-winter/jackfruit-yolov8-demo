@@ -11,6 +11,7 @@ from PIL import Image
 from flask import request, jsonify
 
 
+
 # Configuration
 USE_ONNX = False  # set True if you exported to ONNX and want to use onnxruntime
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/best.pt")
@@ -174,6 +175,65 @@ def predict_url():
     except Exception as e:
         return jsonify(error=f"Inference error: {e}"), 500
 
+
+
+
+
+
+# ===== Gemini Chat (REST) =====
+import os, requests
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# KHÔNG tạo lại app nếu file đã có app = Flask(...)
+# app = Flask(__name__, static_folder="static", template_folder="templates")
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    if not GEMINI_API_KEY:
+        return jsonify(error="Server missing GEMINI_API_KEY (.env)"), 500
+
+    data = request.get_json(silent=True) or {}
+    messages = data.get("messages", [])
+    if not isinstance(messages, list) or not messages:
+        return jsonify(error="Missing messages[]"), 400
+
+    # Chuẩn hoá -> Gemini 'contents'
+    contents = []
+    for m in messages:
+        role = "model" if m.get("role") == "model" else "user"
+        text = (m.get("content") or "").strip()
+        if text:
+            contents.append({"role": role, "parts": [{"text": text}]})
+
+    # Hướng dẫn hệ thống
+    contents.insert(0, {"role": "user", "parts": [{"text":
+        "Bạn là trợ lý Jackfruit Vision cho đồ án. Trả lời ngắn gọn, ưu tiên tiếng Việt."
+    }]})
+
+    try:
+        headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY}
+        payload = {"contents": contents}
+        r = requests.post(GEMINI_URL, headers=headers, json=payload, timeout=40)
+        r.raise_for_status()
+        j = r.json()
+        parts = j.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        reply = "".join(p.get("text", "") for p in parts if "text" in p).strip() or "(không có phản hồi)"
+        return jsonify({"reply": reply})
+    except requests.HTTPError as e:
+        return jsonify(error=f"Gemini HTTP {e.response.status_code}: {e.response.text[:300]}"), 502
+    except Exception as e:
+        return jsonify(error=f"Chat error: {e}"), 500
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
+

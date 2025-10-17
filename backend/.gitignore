@@ -33,3 +33,4 @@ models/*.onnx
 
 # Env secrets
 .env
+/venv

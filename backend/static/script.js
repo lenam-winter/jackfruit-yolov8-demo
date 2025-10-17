@@ -296,3 +296,59 @@ initTheme();
 // Misc
 $("#year").textContent = new Date().getFullYear();
 setIdle();
+
+
+// ===== Gemini Chatbot (đọc body 1 lần) =====
+const chatThread = document.getElementById("chatThread");
+const chatForm   = document.getElementById("chatForm");
+const chatInput  = document.getElementById("chatInput");
+const chatSend   = document.getElementById("chatSend");
+
+// Nếu bạn mở file bằng Live Server (5500) => gọi tới backend 8000
+const BASE = location.origin.includes(":8000") ? "" : "http://127.0.0.1:8000";
+
+let chatHistory = [];
+
+function renderMsg(role, text){
+  if(!chatThread) return;
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + (role === "model" ? "bot" : "user");
+  wrap.innerHTML = `<div class="bubble">${(text || "").replace(/</g,"&lt;")}</div>`;
+  chatThread.appendChild(wrap);
+  chatThread.scrollTop = chatThread.scrollHeight;
+}
+
+chatForm?.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const q = (chatInput?.value || "").trim();
+  if(!q) return;
+  chatInput.value = "";
+  renderMsg("user", q);
+  chatHistory.push({ role:"user", content:q });
+
+  chatSend.disabled = true;
+  try{
+    const res = await fetch(`${BASE}/chat`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ messages: chatHistory })
+    });
+
+    // Đọc body 1 lần
+    const raw = await res.text();
+    let data;
+    try { data = JSON.parse(raw); } catch { data = { error: raw }; }
+
+    if(!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+    const reply = (data.reply || "(không có phản hồi)").trim();
+    renderMsg("model", reply);
+    chatHistory.push({ role:"model", content: reply });
+  }catch(err){
+    renderMsg("model", "⚠️ Lỗi: " + (err.message || err));
+  }finally{
+    chatSend.disabled = false;
+  }
+});
+
+
+
