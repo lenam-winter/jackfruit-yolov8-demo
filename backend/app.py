@@ -205,32 +205,62 @@ def chat():
     if not isinstance(messages, list) or not messages:
         return jsonify(error="Missing messages[]"), 400
 
-    # Chuẩn hoá -> Gemini 'contents'
-    contents = []
+    # === NEW: nhận context & lang (tuỳ chọn) ===
+    context = (data.get("context") or "").strip()
+    lang = (data.get("lang") or "vi").lower()
+
+    # === NEW: sys_prompt + khởi tạo contents (đặt TRƯỚC lịch sử chat) ===
+    sys_prompt = (
+        "Bạn là trợ lý Jackfruit Vision cho đồ án tốt nghiệp. "
+        "Nhiệm vụ: giải thích kết quả nhận diện (mít non/chín/sâu bệnh), "
+        "gợi ý cách chụp ảnh, cách cải thiện mô hình; trả lời ngắn gọn, lịch sự. "
+        f"Ngôn ngữ: {'Tiếng Việt' if lang.startswith('vi') else 'English'}."
+    )
+    contents = [{"role": "user", "parts": [{"text": sys_prompt}]}]
+
+    # === NEW: nhúng ngữ cảnh nhận diện nếu có ===
+    if context:
+        contents.append({"role": "user", "parts": [{"text": f"[Context]\n{context}"}]})
+
+    # === giữ nguyên: đổ lịch sử hội thoại vào contents ===
     for m in messages:
         role = "model" if m.get("role") == "model" else "user"
         text = (m.get("content") or "").strip()
         if text:
             contents.append({"role": role, "parts": [{"text": text}]})
 
-    # Hướng dẫn hệ thống
-    contents.insert(0, {"role": "user", "parts": [{"text":
-        "Bạn là trợ lý Jackfruit Vision cho đồ án. Trả lời ngắn gọn, ưu tiên tiếng Việt."
-    }]})
-
     try:
         headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY}
         payload = {"contents": contents}
-        r = requests.post(GEMINI_URL, headers=headers, json=payload, timeout=40)
+
+        timeout = float(os.environ.get("CHAT_TIMEOUT", 40))
+        r = requests.post(GEMINI_URL, headers=headers, json=payload, timeout=timeout)
         r.raise_for_status()
         j = r.json()
-        parts = j.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-        reply = "".join(p.get("text", "") for p in parts if "text" in p).strip() or "(không có phản hồi)"
+
+        # Lấy text phản hồi an toàn
+        reply = ""
+        try:
+            parts = j.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+            reply = "".join(p.get("text", "") for p in parts if "text" in p).strip()
+        except Exception:
+            reply = ""
+
+        if not reply:
+            # Nếu bị chặn/không có nội dung
+            pf = j.get("promptFeedback", {}) or {}
+            block = pf.get("blockReason") or pf.get("blockReasonMessage")
+            reply = f"(không có phản hồi{' – ' + block if block else ''})"
+
         return jsonify({"reply": reply})
+    except requests.Timeout:
+        return jsonify(error="Gemini timeout. Vui lòng thử lại."), 504
     except requests.HTTPError as e:
         return jsonify(error=f"Gemini HTTP {e.response.status_code}: {e.response.text[:300]}"), 502
     except Exception as e:
         return jsonify(error=f"Chat error: {e}"), 500
+
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

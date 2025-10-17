@@ -61,6 +61,25 @@ function renderDetections(dets) {
     .join("");
   jsonResult.textContent = JSON.stringify(dets, null, 2);
 }
+// === TÓM TẮT KẾT QUẢ NHẬN DIỆN (để đưa vào context chat) ===
+function summarizeDetections(res) {
+  try {
+    const dets = res?.detections || res?.results || [];
+    if (!Array.isArray(dets) || dets.length === 0) return "Không phát hiện đối tượng nào.";
+    const byLabel = {};
+    for (const d of dets) {
+      const lab = d.class_name || d.label || d.class || "unknown";
+      const conf = Number(d.confidence ?? d.conf ?? d.score ?? 0);
+      (byLabel[lab] ||= []).push(conf);
+    }
+    const parts = Object.entries(byLabel).map(([lab, arr]) => {
+      const avg = arr.reduce((a,b)=>a+b,0) / arr.length;
+      return `${lab}: ${arr.length} (độ tin cậy TB ~ ${(avg*100).toFixed(1)}%)`;
+    });
+    const time = (res?.runtime_ms != null) ? ` | Thời gian: ${res.runtime_ms}ms` : "";
+    return `Tổng quan nhận diện: ${parts.join(" • ")}${time}`;
+  } catch { return ""; }
+}
 
 // Gửi ảnh và nhận kết quả
 async function uploadAndPredict(file) {
@@ -80,6 +99,8 @@ async function uploadAndPredict(file) {
 
     // Render bảng phát hiện
     renderDetections(data.detections);
+    window.jv_context = summarizeDetections(data);   
+
 
   } catch (e) {
     alert("Lỗi: " + e.message);
@@ -109,6 +130,7 @@ async function predictFromURL(imageUrl){
     const data = await res.json();
     imgResult.src = "data:image/png;base64," + data.preview_png_base64;
     renderDetections(data.detections);
+    window.jv_context = summarizeDetections(data);
   } catch(e){ alert("Lỗi: " + e.message); }
   finally{
     $("#status .dot").className = "dot ok";
@@ -298,6 +320,9 @@ $("#year").textContent = new Date().getFullYear();
 setIdle();
 
 
+
+
+window.jv_context = window.jv_context || "";
 // ===== Gemini Chatbot (đọc body 1 lần) =====
 const chatThread = document.getElementById("chatThread");
 const chatForm   = document.getElementById("chatForm");
@@ -328,10 +353,14 @@ chatForm?.addEventListener("submit", async (e)=>{
 
   chatSend.disabled = true;
   try{
-    const res = await fetch(`${BASE}/chat`, {
+        const res = await fetch(`${BASE}/chat`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ messages: chatHistory })
+      body: JSON.stringify({
+        messages: chatHistory,
+        context: window.jv_context || "",
+        lang: "vi"
+      })
     });
 
     // Đọc body 1 lần
