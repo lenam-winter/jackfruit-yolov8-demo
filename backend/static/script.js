@@ -328,30 +328,87 @@ const chatThread = document.getElementById("chatThread");
 const chatForm   = document.getElementById("chatForm");
 const chatInput  = document.getElementById("chatInput");
 const chatSend   = document.getElementById("chatSend");
+const chatStatus = document.getElementById("chatStatus");
 
 // Nếu bạn mở file bằng Live Server (5500) => gọi tới backend 8000
 const BASE = location.origin.includes(":8000") ? "" : "http://127.0.0.1:8000";
 
 let chatHistory = [];
 
+// Trạng thái chat
+function showTypingStatus() {
+  if (!chatStatus) return;
+  chatStatus.classList.add("typing");
+  chatStatus.innerHTML = `📝 Đang nhập <span class="dots"><span>.</span><span>.</span><span>.</span></span>`;
+}
+
+function showThinkingStatus() {
+  // 
+  return; // tạm ẩn
+}
+
+function clearStatus() {
+  if (!chatStatus) return;
+  chatStatus.classList.remove("typing");
+  chatStatus.textContent = "";
+}
+
 function renderMsg(role, text){
-  if(!chatThread) return;
+  if(!chatThread) return null;
   const wrap = document.createElement("div");
   wrap.className = "msg " + (role === "model" ? "bot" : "user");
-  wrap.innerHTML = `<div class="bubble">${(text || "").replace(/</g,"&lt;")}</div>`;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text || "";
+
+  wrap.appendChild(bubble);
   chatThread.appendChild(wrap);
   chatThread.scrollTop = chatThread.scrollHeight;
+
+  return bubble;
 }
+
+// Hiển thị "đang nhập..." khi user đang gõ
+chatInput?.addEventListener("input", () => {
+  const hasText = (chatInput.value || "").trim().length > 0;
+  if (hasText) showTypingStatus(); else clearStatus();
+});
+chatInput?.addEventListener("focus", () => {
+  if ((chatInput.value || "").trim()) showTypingStatus();
+});
+chatInput?.addEventListener("blur", () => {
+  clearStatus();
+});
 
 chatForm?.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const q = (chatInput?.value || "").trim();
   if(!q) return;
   chatInput.value = "";
+  clearStatus();
   renderMsg("user", q);
   chatHistory.push({ role:"user", content:q });
-
-  chatSend.disabled = true;
+  {
+  const s = getActiveSession();
+  if (s){
+    s.messages = chatHistory.slice();
+    if (!s.title || s.title === "Cuộc trò chuyện mới"){
+      s.title = autoTitleFrom(q);
+    }
+    s.updatedAt = ts();
+    s.contextSnapshot = window.jv_context || "";
+    saveSessions(); renderHistoryList();
+  }
+}
+  chatSend && (chatSend.disabled = true);
+  // Hiện trạng thái "đang suy nghĩ..." + tạo bong bóng bot placeholder
+  showThinkingStatus();
+  const placeholder = renderMsg("model", "");
+  if (placeholder) {
+    placeholder.classList.add("typing");
+    placeholder.innerHTML = `🤖 Đang suy nghĩ, vui lòng đợi <span class="dots"><span>.</span><span>.</span><span>.</span></span>`;
+  }
   try{
         const res = await fetch(`${BASE}/chat`, {
       method: "POST",
@@ -370,8 +427,27 @@ chatForm?.addEventListener("submit", async (e)=>{
 
     if(!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
     const reply = (data.reply || "(không có phản hồi)").trim();
-    renderMsg("model", reply);
+    
+    if (placeholder){
+      placeholder.classList.remove("typing");
+      placeholder.textContent = reply;
+    } else {
+      renderMsg("model", reply);
+    }
+
     chatHistory.push({ role:"model", content: reply });
+    {
+  
+  const s = getActiveSession();
+  if (s){
+    s.messages = chatHistory.slice();
+    s.updatedAt = ts();
+    s.contextSnapshot = window.jv_context || "";
+    saveSessions(); renderHistoryList();
+  }
+}
+
+
   }catch(err){
     renderMsg("model", "⚠️ Lỗi: " + (err.message || err));
   }finally{
@@ -379,5 +455,201 @@ chatForm?.addEventListener("submit", async (e)=>{
   }
 });
 
+// ===== Chat History (LocalStorage) =====
+const HISTORY_KEY = "jf_chat_sessions_v1";
+
+let sessions = [];   // [{id, title, messages, createdAt, updatedAt, contextSnapshot}]
+let activeId = null;
+
+function uid(){
+  return "s_" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+}
+function ts(){
+  return new Date().toISOString();
+}
+function autoTitleFrom(text){
+  const t = (text || "").trim().replace(/\s+/g, " ");
+  if (!t) return "Cuộc trò chuyện mới";
+  return t.length > 40 ? t.slice(0, 40) + "…" : t;
+}
+function loadSessions(){
+  try{
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const obj = raw ? JSON.parse(raw) : null;
+    sessions = Array.isArray(obj?.sessions) ? obj.sessions : [];
+    activeId = obj?.activeId || sessions?.[0]?.id || null;
+  }catch{ sessions = []; activeId = null; }
+}
+function saveSessions(){
+  try{
+    localStorage.setItem(HISTORY_KEY, JSON.stringify({ sessions, activeId }));
+  }catch{}
+}
+function ensureDefaultSession(){
+  if (!sessions.length){
+    const id = uid();
+    sessions = [{
+      id, title:"Cuộc trò chuyện mới", messages:[], createdAt: ts(), updatedAt: ts(), contextSnapshot:""
+    }];
+    activeId = id; saveSessions();
+  }
+}
+function getActiveSession(){
+  return sessions.find(s => s.id === activeId) || null;
+}
+function setActiveSession(id){
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  activeId = id;
+  chatHistory = [...(s.messages || [])];   // đồng bộ history ra UI
+  renderThread();                          // vẽ lại bong bóng
+  window.jv_context = s.contextSnapshot || "";
+  updateCtxHint();
+  renderHistoryList();
+  saveSessions();
+}
+function renderThread(){
+  if (!chatThread) return;
+  chatThread.innerHTML = "";
+  for (const m of (chatHistory || [])){
+    renderMsg(m.role === "model" ? "model" : "user", m.content || "");
+  }
+}
+
+
+function exportSessionToTxt(s){
+  if (!s) return;
+
+  // Ghép nội dung — có tiêu đề + thời gian + các lượt chat
+  const lines = [];
+  lines.push(`# ${s.title || "Cuộc trò chuyện"}`);
+  lines.push(`Created: ${new Date(s.createdAt || Date.now()).toLocaleString()}`);
+  lines.push(`Updated: ${new Date(s.updatedAt || Date.now()).toLocaleString()}`);
+  lines.push(""); // dòng trống
+
+  for (const m of (s.messages || [])) {
+    const role = (m.role || "user").toUpperCase();
+    lines.push(`${role}: ${m.content || ""}`);
+    lines.push(""); // dòng trống giữa các message
+  }
+
+  // BOM để Notepad nhận đúng UTF-8 (dấu tiếng Việt)
+  const txt = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+
+  // Tên file an toàn
+  const safeTitle = (s.title || "chat")
+    .replace(/[\\/:*?"<>|]+/g, "_")   // ký tự cấm trên Windows
+    .slice(0, 60) || "chat";
+  const fname = `${safeTitle}_${new Date().toISOString().replace(/[:.]/g,"-")}.txt`;
+
+  // Tạo link ẩn và tải
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fname;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 0);
+}
+
+function renderHistoryList(){
+  const ul = document.getElementById("historyList");
+  if (!ul) return;
+  ul.innerHTML = "";
+  sessions
+    .slice() // copy
+    .sort((a,b)=> (b.updatedAt || "").localeCompare(a.updatedAt || "")) // mới nhất trên cùng
+    .forEach(s => {
+      const li = document.createElement("li");
+      li.dataset.id = s.id;
+      li.className = s.id === activeId ? "active" : "";
+      const title = document.createElement("div");
+      title.className = "history-item-title";
+      title.textContent = s.title || "Không tiêu đề";
+      const meta = document.createElement("div");
+      meta.className = "history-item-meta";
+      const dt = new Date(s.updatedAt || s.createdAt || Date.now());
+      meta.textContent = dt.toLocaleString();
+      const actions = document.createElement("div");
+      actions.className = "history-item-actions";
+      const btnDel = document.createElement("button");
+      btnDel.type = "button"; btnDel.textContent = "Xóa";
+      const btnRen = document.createElement("button");
+      btnRen.type = "button"; btnRen.textContent = "Đổi tên";
+      const btnExp = document.createElement("button");
+      btnExp.type = "button"; btnExp.textContent = "Xuất";
+      actions.append(btnRen, btnExp, btnDel);
+
+      const left = document.createElement("div");
+      left.style.display="flex"; left.style.alignItems="center"; left.style.gap="8px"; left.style.flex="1";
+      left.append(title, meta);
+
+      li.append(left, actions);
+      ul.appendChild(li);
+
+      // click để chọn session
+      li.addEventListener("click", (e)=>{
+        // tránh xung đột khi bấm nút con
+        if (e.target.tagName === "BUTTON") return;
+        setActiveSession(s.id);
+      });
+      // đổi tên
+      btnRen.addEventListener("click", ()=>{
+        const newTitle = prompt("Tên đoạn chat:", s.title || "");
+        if (newTitle != null){
+          s.title = newTitle.trim() || s.title;
+          s.updatedAt = ts();
+          saveSessions(); renderHistoryList();
+        }
+      });
+      // xuất txt
+      btnExp.addEventListener("click", (ev)=>{
+  ev.preventDefault();
+  ev.stopPropagation();   // tránh kích hoạt click của <li>
+  exportSessionToTxt(s);  // xuất đúng phiên đang bấm
+});
+      // xóa
+      btnDel.addEventListener("click", ()=>{
+        if (!confirm("Xóa đoạn chat này?")) return;
+        sessions = sessions.filter(x => x.id !== s.id);
+        if (activeId === s.id){
+          activeId = sessions?.[0]?.id || null;
+          chatHistory = getActiveSession()?.messages || [];
+          renderThread();
+        }
+        saveSessions(); renderHistoryList();
+      });
+    });
+}
+function newChatSession(){
+  const id = uid();
+  const s = { id, title:"Cuộc trò chuyện mới", messages:[], createdAt: ts(), updatedAt: ts(), contextSnapshot:"" };
+  sessions.unshift(s);
+  activeId = id; chatHistory = []; renderThread();
+  saveSessions(); renderHistoryList();
+}
+
+// Nút điều khiển
+document.getElementById("exportActive")?.addEventListener("click", ()=>{
+  const s = getActiveSession();
+  if (!s) return;
+  exportSessionToTxt(s);
+});
+
+document.getElementById("newChat")?.addEventListener("click", newChatSession);
+document.getElementById("clearChat")?.addEventListener("click", ()=>{
+  if (!confirm("Xóa toàn bộ bong bóng của đoạn chat hiện tại?")) return;
+  chatHistory = [];
+  const s = getActiveSession(); if (s){ s.messages = []; s.updatedAt = ts(); }
+  renderThread(); saveSessions(); renderHistoryList();
+});
+
+// Khởi tạo lịch sử khi load trang
+loadSessions(); ensureDefaultSession(); renderHistoryList(); setActiveSession(activeId);
 
 

@@ -8,8 +8,8 @@ from PIL import Image
 import numpy as np
 import requests
 from PIL import Image
-from flask import request, jsonify
-
+from flask import request, jsonify, stream_with_context, Response
+import time
 
 
 # Configuration
@@ -259,6 +259,44 @@ def chat():
         return jsonify(error=f"Gemini HTTP {e.response.status_code}: {e.response.text[:300]}"), 502
     except Exception as e:
         return jsonify(error=f"Chat error: {e}"), 500
+
+@app.route("/chat_stream", methods=["POST"])
+def chat_stream():
+    data = request.get_json(silent=True) or {}
+    data.setdefault("lang", "vi")
+    try:
+        headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY}
+        context  = (data.get("context") or "").strip()
+        messages = data.get("messages") or []
+        sys_prompt = (
+            "Bạn là trợ lý Jackfruit Vision. Trả lời ngắn gọn, lịch sự. "
+            f"Ngôn ngữ: {'Tiếng Việt' if data['lang']=='vi' else 'English'}."
+        )
+        contents = [{"role":"user","parts":[{"text":sys_prompt}]}]
+        if context:
+            contents.append({"role":"user","parts":[{"text":f'[Context]\n{context}'}]})
+        for m in messages:
+            contents.append({
+                "role": "model" if m.get("role")=="model" else "user",
+                "parts":[{"text": (m.get("content") or '').strip()}]
+            })
+        payload = {"contents": contents}
+        r = requests.post(GEMINI_URL, headers=headers, json=payload, timeout=40)
+        r.raise_for_status()
+        j = r.json()
+        parts = j.get("candidates",[{}])[0].get("content",{}).get("parts",[])
+        full = "".join(p.get("text","") for p in parts if "text" in p).strip() or "(không có phản hồi)"
+    except Exception as e:
+        full = f"(lỗi khi gọi mô hình: {e})"
+
+    @stream_with_context
+    def gen():
+        chunk = 40
+        for i in range(0, len(full), chunk):
+            yield full[i:i+chunk]
+            time.sleep(0.03)
+    return Response(gen(), mimetype="text/plain; charset=utf-8")
+
 
 
 

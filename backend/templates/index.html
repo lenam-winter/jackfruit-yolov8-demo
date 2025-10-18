@@ -173,10 +173,26 @@
    <section id="chat" class="card">
   <div class="card-head">
     <h2>Trợ lý AI (Gemini)</h2>
-    <p class="muted">Hỏi đáp về mô hình, cách dùng, xử lý lỗi… (API key nằm ở server)</p>
+    <p class="muted">Mình sẽ giải đáp cho bạn những vấn đề của dự án</p>
+    <small id="ctxHint" class="muted"></small>
   </div>
+  <!-- Lịch sử đoạn chat -->
+<div class="history">
+  <div class="history-head">
+    <div class="history-title">Lịch sử đoạn chat</div>
+    <div class="history-actions">
+      <button id="newChat" class="btn ghost sm" type="button">+ Cuộc trò chuyện mới</button>
+      <button id="clearChat" class="btn ghost sm" type="button">Xóa đoạn hiện tại</button>
+      <button id="exportActive" class="btn ghost sm" type="button">Xuất đoạn hiện tại</button>
+
+    </div>
+  </div>
+  <ul id="historyList" class="history-list" aria-label="Lịch sử đoạn chat"></ul>
+</div>
+
   <div class="chat">
     <div id="chatThread" class="thread" aria-live="polite"></div>
+    <div id="chatStatus" class="chat-status" aria-live="polite"></div>
     <form id="chatForm" class="chatbox">
       <input id="chatInput" type="text" placeholder="Nhập câu hỏi..." autocomplete="off" />
       <button id="chatSend" class="btn btn-primary" type="submit">Gửi</button>

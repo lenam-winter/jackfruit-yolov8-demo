@@ -309,3 +309,55 @@ html[data-theme="dark"] .preview{ background: linear-gradient(180deg, rgba(6,10,
   gap: 10px
 }
 
+/* ===== Chat History ===== */
+.history { margin-bottom: 12px; }
+.history-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px; margin-bottom:8px;
+}
+.history-title{ font-weight:600; }
+.history-actions .btn{ margin-left:6px; }
+.history-list{
+  list-style:none; padding:0; margin:0;
+  border:1px solid var(--surface-border); border-radius:12px; overflow:hidden;
+  max-height: 220px; overflow:auto; background: var(--card);
+}
+.history-list li{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--surface-border);
+}
+.history-list li:last-child{ border-bottom:none; }
+.history-list li.active{ background: rgba(0,0,0,0.04); }
+html[data-theme="dark"] .history-list li.active{ background: rgba(255,255,255,0.06); }
+.history-item-title{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.history-item-meta{ font-size:12px; opacity:.7; margin-left:8px; }
+.history-item-actions{ display:flex; gap:6px; }
+.history-item-actions button{
+  font-size:12px; border:1px solid var(--surface-border); border-radius:6px; padding:2px 6px; background:transparent; cursor:pointer;
+}
+.history-item-actions button:hover{ filter:brightness(0.98); }
+/* ===== End Chat History ===== */
+
+
+
+/* ===== Chat status ===== */
+.chat { grid-template-rows: 1fr auto auto; } /* thread | status | form */
+.chat-status{
+  font-size: 13px; opacity: .8; margin: 4px 2px 6px;
+  min-height: 18px; /* để layout không giật khi ẩn/hiện */
+}
+.chat-status.hidden{ display:none; }
+
+/* Bubbles */
+.bubble { position: relative; }
+
+/* Typing dots animation (dùng cho status & bubble placeholder) */
+.typing .dots span{ opacity:0; animation: jf-blink 1.2s infinite; display:inline-block; }
+.typing .dots span:nth-child(2){ animation-delay: .2s; }
+.typing .dots span:nth-child(3){ animation-delay: .4s; }
+
+@keyframes jf-blink{
+  0%, 20% { opacity:0; }
+  50%     { opacity:1; }
+  100%    { opacity:0; }
+}
