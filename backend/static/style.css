@@ -62,10 +62,60 @@ html[data-theme="dark"] .topbar{
 
 /* nav */
 .nav{ display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
-.brand{ display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .2px; color: var(--text); }
-.brand img{ width: 28px; height: 28px; filter: none; }
-.menu a{ color: var(--muted); text-decoration: none; margin-left: 18px; }
-.menu a:hover{ color: var(--text); }
+.brand{ display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .2px; color: var(--text); }
+.brand img,
+.brand-img {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;            /* change to 50% for circular logo */
+  object-fit: cover;             /* crop safely if source size differs */
+  box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+  border: 1px solid rgba(0,0,0,0.04);
+  transition: transform .14s ease, box-shadow .14s ease, opacity .12s ease;
+  display: inline-block;
+  vertical-align: middle;
+}
+.brand img:hover,
+.brand-img:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 16px 40px rgba(2,6,23,0.12);
+}
+
+/* Dark theme adjustments */
+html[data-theme="dark"] .brand img,
+html[data-theme="dark"] .brand-img {
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Optional circular variant */
+.brand img.round,
+.brand-img.round {
+  border-radius: 50%;
+}
+
+/* Brand text */
+.brand span {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+
+/* Responsive: smaller on narrow screens */
+@media (max-width: 480px) {
+  .brand img,
+  .brand-img {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 6px;
+  }
+  .brand span { font-size: 16px; }
+}
 
 /* hero */
 .hero{ padding: 48px 0 24px; }
